@@ -21,25 +21,24 @@ def hash_password(password):
 def index():
     return 'Welcome to the Task Manager Application!'
 
-
+#"modificacion de la funcion login" 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
 
+        # Conexión a la BD
         conn = get_db_connection()
 
-        # Inyección de SQL solo si se detecta un payload de inyección de SQL
-        if "' OR '" in password:
-            query = f"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'"
-            user = conn.execute(query).fetchone()
-        else:
-            query = "SELECT * FROM users WHERE username = ? AND password = ?"
-            hashed_password = hash_password(password)
-            user = conn.execute(query, (username, hashed_password)).fetchone()
+        # MITIGACIÓN:
+        # 1. Hasheamos la contraseña ingresada
+        hashed_password = hash_password(password)
 
-        print("Consulta SQL generada:", query)
+        # 2. Usamos SIEMPRE consulta parametrizada
+        query = "SELECT * FROM users WHERE username = ? AND password = ?"
+        user = conn.execute(query, (username, hashed_password)).fetchone()
+        conn.close()
 
         if user:
             session['user_id'] = user['id']
@@ -47,13 +46,19 @@ def login():
             return redirect(url_for('dashboard'))
         else:
             return 'Invalid credentials!'
-    return '''
-        <form method="post">
-            Username: <input type="text" name="username"><br>
-            Password: <input type="password" name="password"><br>
-            <input type="submit" value="Login">
-        </form>
-    '''
+
+    # GET: mostramos el formulario
+    login_form = """
+    <form method="post">
+        <label>Username:</label>
+        <input type="text" name="username"><br>
+        <label>Password:</label>
+        <input type="password" name="password"><br>
+        <input type="submit" value="Login">
+    </form>
+    """
+    return render_template_string(login_form)
+
 
 
 @app.route('/dashboard')
